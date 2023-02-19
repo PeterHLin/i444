@@ -4,15 +4,22 @@
   "description": "Name:\t\tXXX B-Number:\tXXX Email:\t\tXXX",
   "main": "index.js",
   "scripts": {
-    "test": "mocha test/",
-    "debug-test": "mocha --inspect-brk test/",
-    "syntax-check": "shopt -s globstar; for f in **/*.mjs; do node -c $f; done;"
+    "clean": "shx rm -rf dist",
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "pretest": "npm run build",
+    "test": "mocha --reporter-options maxDiffSize=128000 dist/test",
+    "predebug-test": "npm run build",
+    "debug-test": "mocha --inspect-brk dist/test"
   },
   "type": "module",
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/chai": "^4.3.4",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^18.13.0",
     "chai": "^4.3.7",
     "mocha": "^10.2.0"
   },

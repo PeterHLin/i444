@@ -182,7 +182,7 @@ describe('grades', () => {
       grades = result444.val;
     });
 
-    it('must successfully add a new empty column', () => {
+    it.only('must successfully add a new empty column', () => {
       const addResult = grades.addColumn('prj4');
       assert(addResult.isOk === true);
       const rows = addResult.val.getRawTable();

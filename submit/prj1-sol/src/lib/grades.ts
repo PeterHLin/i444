@@ -2,11 +2,11 @@ import * as C from './course-info.js';
 import * as G from './grade-table.js';
 import { okResult, errResult, ErrResult, Result } from 'cs544-js-utils';
 
-export default function makeGrades(course: C.CourseInfo) : G.Grades {
+export default function makeGrades(course: C.CourseInfo): G.Grades {
   return GradesImpl.make(course);
 }
 
-type RawRowsMap = { [rowId: string]:  G.RawRow }; 
+type RawRowsMap = { [rowId: string]: G.RawRow };
 
 class GradesImpl implements C.CourseObj, G.Grades {
   readonly course: C.CourseInfo;
@@ -14,17 +14,17 @@ class GradesImpl implements C.CourseObj, G.Grades {
   readonly #rawRowsMap: RawRowsMap;
   #fullTable: G.FullTable;
 
-  static make(course: C.CourseInfo) : G.Grades {
+  static make(course: C.CourseInfo): G.Grades {
     return new GradesImpl(course);
   }
 
-  private constructor(course: C.CourseInfo, colIds: Set<string> =null,
-		      rawRowsMap: RawRowsMap = null) {
+  private constructor(course: C.CourseInfo, colIds: Set<string> = null,
+    rawRowsMap: RawRowsMap = null) {
     //uncomment following line if no ts files shown in chrome debugger
-    //debugger 
-    this.course = course;
-    this.#colIds = colIds;
-    this.#rawRowsMap = rawRowsMap;
+    debugger
+    this.course = course; //course data
+    this.#colIds = colIds; //current columns in table
+    this.#rawRowsMap = rawRowsMap; //rawdata to add in
     this.#fullTable = null;
   }
 
@@ -34,8 +34,30 @@ class GradesImpl implements C.CourseObj, G.Grades {
    *    BAD_ARG: colId is already in table or is not a score/info/id colId
    *    for course.
    */
-  addColumn(colId: string) : Result<G.Grades> {
-    return errResult('TODO', 'UNIMPLEMENTED') as Result<G.Grades>;
+  addColumn(colId: string): Result<G.Grades> {
+    //errors to check if it's already in table or not a score/info/id colId
+    const colProp = this.course.cols[colId];
+    if (colProp === undefined) {
+      return errResult(`unknown column ${colId}`, 'BAD_ARG');
+      }
+    if (this.#colIds && this.#colIds.has(colId)) {
+      return errResult(`column ${colId} already in table`, 'BAD_ARG');
+    }
+    else if(colProp.kind != ('score' || 'info' || 'id'))  {
+      return errResult(`${colId} is a score, an info, or an id`, 'BAD_ARG');
+    }
+    else{
+      //add to colid if not in table
+      const new_colId = new Set<string>(this.#colIds);
+      new_colId.add(colId);
+      //loop through the existing rows and set it to ""
+      let new_rawRowsMap = this.#rawRowsMap;
+      for(let k in new_rawRowsMap){
+        new_rawRowsMap[k][colId] = "";
+      } 
+      const rawRowsMap = { ...this.#rawRowsMap, ...new_rawRowsMap};
+      return okResult(new GradesImpl(this.course, new_colId, rawRowsMap));
+    }
   }
 
   /** Apply patches to table, returning the patched table.
@@ -60,7 +82,7 @@ class GradesImpl implements C.CourseObj, G.Grades {
   getRawTable(): G.RawTable {
     return this.#colIds === null ? [] : Object.values(this.#rawRowsMap);
   }
-  
+
   /** Upsert (i.e. insert or replace) row to table and return the new
    *  table.  Note that this Grades object should not be 
    *  modified at all.  The returned Grades may share structure with
@@ -73,13 +95,13 @@ class GradesImpl implements C.CourseObj, G.Grades {
    *              or is missing an id column course.colidentifying the row.
    *   'RANGE':   A kind='score' column value is out of range
    */
-  upsertRow(row: G.RawRow) : Result<G.Grades> {
+  upsertRow(row: G.RawRow): Result<G.Grades> {
     const cols = this.course.cols;
     const rowColIds = Object.keys(row);
     const colIds = (this.#colIds) ? this.#colIds : new Set<string>(rowColIds);
     const addColIds = rowColIds.filter(colId => !colIds.has(colId));
     const missColIds =
-      [ ...colIds ].filter(colId => rowColIds.indexOf(colId) < 0);
+      [...colIds].filter(colId => rowColIds.indexOf(colId) < 0);
     let err = new ErrResult();
     //console.log(colIds, rowColIds, addColIds, missColIds);
     if (addColIds.length > 0) {
@@ -91,40 +113,40 @@ class GradesImpl implements C.CourseObj, G.Grades {
     let rowId: string;
     for (const [colId, val] of Object.entries(row)) {
       if (val === undefined || val === null) {
-	const msg = `${colId} is ${row[colId] === null ? 'null' : 'undefined'}`;
-	err = err.addError(msg, 'BAD_ARG');
+        const msg = `${colId} is ${row[colId] === null ? 'null' : 'undefined'}`;
+        err = err.addError(msg, 'BAD_ARG');
       }
       const colProp = cols[colId];
       if (colProp === undefined) {
-	err = err.addError(`unknown column ${colId}`, 'BAD_ARG');
+        err = err.addError(`unknown column ${colId}`, 'BAD_ARG');
       }
       else if (colProp.kind === 'id') {
-	if (typeof val === 'string') rowId = val as string;
+        if (typeof val === 'string') rowId = val as string;
       }
       else if (colProp.kind === 'calc') {
-	err = err.addError(`attempt to add data for calculated column ${colId}`,
-			   'BAD_ARG');
+        err = err.addError(`attempt to add data for calculated column ${colId}`,
+          'BAD_ARG');
       }
       else if (colProp.kind === 'score') {
-	const {min, max} = colProp;
-	const val = row[colId];
-	if (typeof val === 'number' && (val < min || val > max)) {
-	  const msg = `${colId} value ${val} out of range [${min}, ${max}]`;
-	  err = err.addError(msg, 'RANGE');
-	}
+        const { min, max } = colProp;
+        const val = row[colId];
+        if (typeof val === 'number' && (val < min || val > max)) {
+          const msg = `${colId} value ${val} out of range [${min}, ${max}]`;
+          err = err.addError(msg, 'RANGE');
+        }
       }
     }
     if (rowId === undefined) {
       err = err.addError(`no entry for ID column ${this.course.rowIdColId}`,
-			 'BAD_ARG');
+        'BAD_ARG');
     }
-    if  (err.errors.length > 0) {
+    if (err.errors.length > 0) {
       return err;
     }
     else {
       const row1Pairs = Object.keys(row)
-	.sort((colId1, colId2) => cols[colId1].colIndex - cols[colId2].colIndex)
-	.map(colId => [colId, row[colId]]);
+        .sort((colId1, colId2) => cols[colId1].colIndex - cols[colId2].colIndex)
+        .map(colId => [colId, row[colId]]);
       const row1 = Object.fromEntries(row1Pairs);
       const rawRowsMap = { ...this.#rawRowsMap, ...{ [rowId]: row1 } };
       return okResult(new GradesImpl(this.course, colIds, rawRowsMap));
