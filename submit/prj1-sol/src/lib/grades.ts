@@ -1,6 +1,9 @@
 import * as C from './course-info.js';
 import * as G from './grade-table.js';
 import { okResult, errResult, ErrResult, Result } from 'cs544-js-utils';
+import { brotliCompressSync } from 'zlib';
+import { createHistogram } from 'perf_hooks';
+import { privateEncrypt } from 'crypto';
 
 export default function makeGrades(course: C.CourseInfo): G.Grades {
   return GradesImpl.make(course);
@@ -21,7 +24,7 @@ class GradesImpl implements C.CourseObj, G.Grades {
   private constructor(course: C.CourseInfo, colIds: Set<string> = null,
     rawRowsMap: RawRowsMap = null) {
     //uncomment following line if no ts files shown in chrome debugger
-    debugger
+    //debugger
     this.course = course; //course data
     this.#colIds = colIds; //current columns in table
     this.#rawRowsMap = rawRowsMap; //rawdata to add in
@@ -39,24 +42,40 @@ class GradesImpl implements C.CourseObj, G.Grades {
     const colProp = this.course.cols[colId];
     if (colProp === undefined) {
       return errResult(`unknown column ${colId}`, 'BAD_ARG');
-      }
+    }
     if (this.#colIds && this.#colIds.has(colId)) {
       return errResult(`column ${colId} already in table`, 'BAD_ARG');
     }
-    else if(colProp.kind != ('score' || 'info' || 'id'))  {
+    else if (colProp.kind != ('score' || 'info' || 'id')) {
       return errResult(`${colId} is a score, an info, or an id`, 'BAD_ARG');
     }
-    else{
-      //add to colid if not in table
-      const new_colId = new Set<string>(this.#colIds);
+    else {
+      //add new column
+      const cols = this.course.cols;
+      let newRawRowsMap: RawRowsMap = {};
+      //create a new table
+      let new_colId = new Set<string>(this.#colIds);
       new_colId.add(colId);
-      //loop through the existing rows and set it to ""
-      let new_rawRowsMap = this.#rawRowsMap;
-      for(let k in new_rawRowsMap){
-        new_rawRowsMap[k][colId] = "";
-      } 
-      const rawRowsMap = { ...this.#rawRowsMap, ...new_rawRowsMap};
-      return okResult(new GradesImpl(this.course, new_colId, rawRowsMap));
+      //add column
+      [...new_colId].sort((colId1, colId2) => cols[colId1].colIndex - cols[colId2].colIndex)
+      //sort column in the order of course.info
+
+      for (const [rowid, row] of Object.entries(this.#rawRowsMap)) {
+        newRawRowsMap[rowid] = { ...row, ...{ [colId]: "" } };
+      }
+      //add the empty column to table
+
+      newRawRowsMap = Object.keys(newRawRowsMap).reduce((a, b) => {
+        const sorted_map = Object.entries(newRawRowsMap[b])
+          .sort(([colId1], [colId2]) => cols[colId1].colIndex - cols[colId2].colIndex);
+        const updated_sorted_map = Object.fromEntries(sorted_map);
+        return { ...a, [b]: updated_sorted_map };
+      }, {});
+
+      //sort the table in order of course.info
+
+      return okResult(new GradesImpl(this.course, new_colId, newRawRowsMap));
+
     }
   }
 
@@ -67,7 +86,63 @@ class GradesImpl implements C.CourseObj, G.Grades {
    *    RANGE: Patch data is out-of-range.
    */
   patch(patches: G.Patches): Result<G.Grades> {
-    return errResult('TODO', 'UNIMPLEMENTED') as Result<G.Grades>;
+    const colIds = this.#colIds; // columns
+    const row_id = Object.keys(patches); // row_ids
+    let err = new ErrResult(); //error list
+    //check if patch is valid
+    row_id.forEach(id => {
+      const patch_row = patches[id];
+      if (this.#rawRowsMap.hasOwnProperty(id) === false) {
+        err = err.addError("row does not exist in table", "BAD_ARG");
+      }
+      else {
+        const patch_col_id = Object.keys(patches[id]);
+        patch_col_id.forEach(col_id => {
+          if (colIds.has(col_id) === false) {
+            err = err.addError(`${col_id} doesn't exist`, 'BAD_ARG');
+          }
+          else if ((col_id != this.course.rowIdColId) && (col_id !== this.course.id)) {
+            const current_col = this.course.cols[col_id];
+            const patch_col = patch_row[col_id];
+            //check if its not a calc
+            if (current_col.kind === 'calc') {
+              err = err.addError('invalud patch value', 'BAD_ARG');
+            }
+            //check if current col is a score
+            if (current_col.kind === 'score') {
+              const { min, max } = current_col;
+              //check if patch value is in the range
+              if (patch_col < min || patch_col > max) {
+                err = err.addError('invalid patch value', 'RANGE');
+              }
+            }
+          }
+        });
+        // console.log(patches[id]);
+        // console.log(this.#rawRowsMap[id]);
+      }
+    });
+
+    //apply the patches to the table
+
+    let updated_raws_rows = { ... this.#rawRowsMap };
+    row_id.forEach(row_id => {
+      updated_raws_rows = {
+        ...updated_raws_rows, [row_id]: { ...updated_raws_rows[row_id], ...patches[row_id] }
+      };
+    });
+    // {
+    //     console.log(this.#rawRowsMap[id])
+    //   }
+    // const colProp = this.course.cols[colId];
+    // console.log(row_id);
+    // console.log(colIds);
+    //return errResult('TODO', 'UNIMPLEMENTED') as Result<G.Grades>;
+
+    if (err.errors.length > 0) {
+      return err;
+    }
+    return okResult(new GradesImpl(this.course, colIds, updated_raws_rows));
   }
 
   /** Return full table containing all computed values */
@@ -103,7 +178,7 @@ class GradesImpl implements C.CourseObj, G.Grades {
     const missColIds =
       [...colIds].filter(colId => rowColIds.indexOf(colId) < 0);
     let err = new ErrResult();
-    //console.log(colIds, rowColIds, addColIds, missColIds);
+    //console.log(colIds, "1", rowColIds , "2", addColIds, "3", missColIds, "4");
     if (addColIds.length > 0) {
       err = err.addError(`new columns ${addColIds.join(', ')}`, 'BAD_ARG');
     }
@@ -147,6 +222,7 @@ class GradesImpl implements C.CourseObj, G.Grades {
       const row1Pairs = Object.keys(row)
         .sort((colId1, colId2) => cols[colId1].colIndex - cols[colId2].colIndex)
         .map(colId => [colId, row[colId]]);
+      //console.log(row1Pairs);
       const row1 = Object.fromEntries(row1Pairs);
       const rawRowsMap = { ...this.#rawRowsMap, ...{ [rowId]: row1 } };
       return okResult(new GradesImpl(this.course, colIds, rawRowsMap));
@@ -158,4 +234,3 @@ class GradesImpl implements C.CourseObj, G.Grades {
 }
 
 //TODO: add auxiliary functions as needed
-
