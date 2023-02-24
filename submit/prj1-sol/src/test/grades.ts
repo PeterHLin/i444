@@ -303,7 +303,7 @@ describe('grades', () => {
 
   });
 
-  describe.only('full table', () => {
+  describe('full table', () => {
 
     let grades: G.Grades;
     let full: G.GradeRow[];

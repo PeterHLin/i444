@@ -1,9 +1,11 @@
 import * as C from './course-info.js';
 import * as G from './grade-table.js';
-import { okResult, errResult, ErrResult, Result } from 'cs544-js-utils';
+import { okResult, errResult, ErrResult, Result, Err } from 'cs544-js-utils';
 import { brotliCompressSync } from 'zlib';
 import { createHistogram } from 'perf_hooks';
 import { privateEncrypt } from 'crypto';
+import { colMin } from './formula-fns.js';
+import { xdescribe } from 'mocha';
 
 export default function makeGrades(course: C.CourseInfo): G.Grades {
   return GradesImpl.make(course);
@@ -54,10 +56,10 @@ class GradesImpl implements C.CourseObj, G.Grades {
       const cols = this.course.cols;
       let newRawRowsMap: RawRowsMap = {};
       //create a new table
-      let new_colId = new Set<string>(this.#colIds);
-      new_colId.add(colId);
+      let new_colId = new Set<string>(...this.#colIds, colId);
+      // new_colId.add(colId);
       //add column
-      [...new_colId].sort((colId1, colId2) => cols[colId1].colIndex - cols[colId2].colIndex)
+      // [...new_colId].sort((colId1, colId2) => cols[colId1].colIndex - cols[colId2].colIndex)
       //sort column in the order of course.info
 
       for (const [rowid, row] of Object.entries(this.#rawRowsMap)) {
@@ -146,9 +148,101 @@ class GradesImpl implements C.CourseObj, G.Grades {
   }
 
   /** Return full table containing all computed values */
+  //*
   getFullTable(): G.FullTable {
-    return null; //TODO
+    if (this.#fullTable !== null) {
+      return this.#fullTable;
+    }
+    let table = [];
+    for (const [key, value] of Object.entries(this.#rawRowsMap)) {
+      const val = { "$stat": "", ...value };
+      table.push(val);
+    }
+    //console.log(table);
+    // compute columns
+    let temp_table: G.FullTable = []
+    let calc_columns: any = [];
+    let err = new ErrResult();
+    for (let [col, value] of Object.entries(this.course.cols)) {
+      if (value.kind === 'calc') {
+        calc_columns.push(value);
+      }
+    }
+    table.forEach((row) => {
+      let newRow: any = { ...row };
+      calc_columns.forEach((x: any) => {
+        const result = x.fn(this.course, row);
+        if (result.isOk == true) {
+          newRow[x.colId] = result.val;
+        }
+        else {
+          err = err.addError(result);
+        }
+      })
+      temp_table.push(newRow);
+      table = temp_table;
+    })
+    // compute row
+    calc_columns = [];
+    table.forEach(row => {
+      for (const [key, value] of Object.entries(row)) {
+        if ((key in calc_columns) === false) {
+          calc_columns[key] = [];
+        }
+        calc_columns[key].push(value)
+      }
+    });
+    for (const [key, value] of Object.entries(this.course.calcRows)) {
+      let row_cache: any = {};
+      row_cache["$stat"] = value.rowId;
+
+      this.#colIds.forEach((id) => {
+        for (const [key, val] of Object.entries(this.course.cols)) {
+          if (val.kind === "score" || val.kind === "calc") {
+            const result = value.fn(this.course, calc_columns[id])
+            //get the result
+            if (result.isOk === true) {
+              row_cache[id] = result.val;
+              //console.log(row_cache);
+            }
+            else {
+              //entries other than score or calc
+              row_cache[id] = "";
+            }
+          }
+        }
+      })
+      temp_table.push(row_cache);
+      table = temp_table;
+      this.#fullTable = temp_table;
+    }
+    //recalculate the columns again
+    temp_table = [];
+    calc_columns = [];
+    for (let [col, value] of Object.entries(this.course.cols)) {
+      if (value.kind === 'calc') {
+        calc_columns.push(value);
+      }
+    }
+
+    table.forEach((row) => {
+      let newRow: any = { ...row };
+      calc_columns.forEach((x: any) => {
+        const result = x.fn(this.course, row);
+        if (result.isOk) {
+          newRow[x.colId] = result.val;
+        }
+        else {
+          err = err.addError(result);
+        }
+      })
+      temp_table.push(newRow);
+    })
+    table = temp_table;
+    this.#fullTable = table;
+    return table;
   }
+  /** Return full table containing all computed values */
 
   /** Return a raw table containing the raw data.  Note that all
    *  columns in each retrieved row must be in the same order
