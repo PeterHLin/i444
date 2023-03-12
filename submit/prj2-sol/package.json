@@ -1,0 +1,35 @@
+{
+  "name": "prj2-sol",
+  "version": "1.0.0",
+  "description": "Name:\t\tXXX B-Number:\tXXX Email:\t\tXXX",
+  "main": "index.js",
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "pretest": "npm run build",
+    "test": "mocha --reporter-options maxDiffSize=128000 dist/test",
+    "predebug-test": "npm run build",
+    "debug-test": "mocha --inspect-brk dist/test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@types/chai": "^4.3.4",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^18.15.0",
+    "chai": "^4.3.7",
+    "cs544-js-utils": "https://sunybing:sunybing@zdu.binghamton.edu/cs544/lib/cs544-js-utils-latest.tgz",
+    "cs544-node-utils": "https://sunybing:sunybing@zdu.binghamton.edu/cs544/lib/cs544-node-utils-latest.tgz",
+    "cs544-prj1-sol": "https://sunybing:sunybing@zdu.binghamton.edu/cs544/lib/cs544-prj1-sol-latest.tgz",
+    "mocha": "^10.2.0",
+    "mongodb": "^5.1.0",
+    "shx": "^0.3.4",
+    "typescript": "^4.9.5"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^8.11.5"
+  }
+}
