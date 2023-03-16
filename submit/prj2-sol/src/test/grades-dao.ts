@@ -20,7 +20,7 @@ const COURSES_DATA = {
   },
 };
 
-const DATA : { [key: string]: {[rawFull: string]: G.RawTable } } = {};
+const DATA: { [key: string]: { [rawFull: string]: G.RawTable } } = {};
 
 before(async () => {
   for (const courseId of Object.keys(COURSES)) {
@@ -43,7 +43,7 @@ describe('grades dao', () => {
   });
 
   //mocha runs this after each test; we use this to clean up the DAO.
-  afterEach(async function() {
+  afterEach(async function () {
     await MemGradesDao.tearDown(dao);
   });
 
@@ -92,8 +92,8 @@ describe('grades dao', () => {
     }
   });
 
-  describe ('upsert rows', () => {
-    
+  describe('upsert rows', () => {
+
     it('must add a new row', async () => {
       const courseId = 'cs220';
       const rowIdColId = COURSES[courseId].rowIdColId;
@@ -106,12 +106,12 @@ describe('grades dao', () => {
       assert(upsertResult.isOk);
       const gradesResult = await dao.getGrades(courseId);
       assert(gradesResult.isOk);
-      const expected = sortGrades([...data, newRow ], rowIdColId);
+      const expected = sortGrades([...data, newRow], rowIdColId);
       const actual = sortGrades(gradesResult.val.getRawTable(), rowIdColId);
       expect(actual).to.be.deep.equal(expected);
     });
 
-    
+
     it('must replace an existing row', async () => {
       const courseId = 'cs220';
       const rowIdColId = COURSES[courseId].rowIdColId;
@@ -124,7 +124,7 @@ describe('grades dao', () => {
       assert(upsertResult.isOk);
       const gradesResult = await dao.getGrades(courseId);
       assert(gradesResult.isOk);
-      const expected = sortGrades([...data.slice(1), newRow ], rowIdColId);
+      const expected = sortGrades([...data.slice(1), newRow], rowIdColId);
       const actual = sortGrades(gradesResult.val.getRawTable(), rowIdColId);
       expect(actual).to.be.deep.equal(expected);
     });
@@ -132,7 +132,7 @@ describe('grades dao', () => {
     it('must upsert rows into totally empty table', async () => {
       const courseId = 'cs220';
       const rowIdColId = COURSES[courseId].rowIdColId;
-      const data = [ { emailId: 'xxx', prj1: 88 }, { emailId: 'aaa', prj1: 80 } ];
+      const data = [{ emailId: 'xxx', prj1: 88 }, { emailId: 'aaa', prj1: 80 }];
       expect(data).to.have.length.above(0);
       const upsertResult = await dao.upsertRows(courseId, data);
       assert(upsertResult.isOk);
@@ -143,12 +143,12 @@ describe('grades dao', () => {
       expect(actual).to.be.deep.equal(expected);
     });
   });
-  
-  
+
+
   it('must add columns', async () => {
     const courseId = 'cs220';
     const rowIdColId = COURSES[courseId].rowIdColId;
-    const addCols = [ 'prj4', 'hw4' ];
+    const addCols = ['prj4', 'hw4'];
     const data = DATA[courseId].raw;
     const loadResult = await dao.load(courseId, data);
     assert(loadResult.isOk);
@@ -159,11 +159,11 @@ describe('grades dao', () => {
     const actual = sortGrades(gradesResult.val.getRawTable(), rowIdColId);
     const addColsData = Object.fromEntries(addCols.map((c: string) => [c, '']));
     const expected =
-      sortGrades(data.map(row => ({...row, ...addColsData})), rowIdColId);
+      sortGrades(data.map(row => ({ ...row, ...addColsData })), rowIdColId);
     expect(actual).to.be.deep.equal(expected);
   });
 
-  
+
   it('must patch newly added column', async () => {
     const courseId = 'cs220';
     const addColId = 'prj4';
@@ -175,14 +175,14 @@ describe('grades dao', () => {
     const colsResult = await dao.addColumns(courseId, addColId);
     assert(colsResult.isOk);
     const patches =
-      Object.fromEntries(data.map((row, i) => [ row[rowIdColId], addData[i] ]));
+      Object.fromEntries(data.map((row, i) => [row[rowIdColId], addData[i]]));
     const patchResult = await dao.patch(courseId, patches);
     assert(patchResult.isOk);
     const gradesResult = await dao.getGrades(courseId);
     assert(gradesResult.isOk);
     const actual = sortGrades(gradesResult.val.getRawTable(), rowIdColId);
     const expected =
-      sortGrades(data.map((row, i) => ({...row, ...addData[i]})), rowIdColId);
+      sortGrades(data.map((row, i) => ({ ...row, ...addData[i] })), rowIdColId);
     expect(actual).to.be.deep.equal(expected);
   });
 
@@ -202,11 +202,11 @@ describe('grades dao', () => {
       expect(upsertResult.errors[0].options.code).to.equal('BAD_ARG');
     });
 
-    
+
     it('using a bad course-id for getGrades() errors BAD_ARG', async () => {
       //TODO
     });
-    
+
     it('adding a totally unknown column must result in an error', async () => {
       //TODO
     });
@@ -214,12 +214,12 @@ describe('grades dao', () => {
     it('patching in an out-of-range grade must error', async () => {
       //TODO
     });
-    
+
   });
-  
+
 
 });
 
 function randGrade() {
-  return Number((Math.random()*100).toFixed(0));
+  return Number((Math.random() * 100).toFixed(0));
 }
