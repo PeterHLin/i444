@@ -106,12 +106,23 @@ function get_course_grade_row(app: Express.Application) {
       //check table query
       if (table === "true") {
         //if true get the full table
+        //check result
+        const result_full_table = result.val.getFullTableRow(row);
+        //check isOk value
+        if (result_full_table.isOK === false) {
+          throw result_full_table;
+        }
         const response = selfResult<G.FullTable>(req, result.val.getFullTableRow(row));
         res.json(response.result);
       }
       else
       //else get the raw table
       {
+        const result_raw_table = result.val.getRawTableRow(row);
+        //check isOk value
+        if (result_raw_table.isOK === false) {
+          throw result_raw_table;
+        }
         const response = selfResult<G.FullTable>(req, result.val.getRawTableRow(row));
         res.json(response.result);
       }
