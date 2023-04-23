@@ -23,6 +23,7 @@ body {
 .scroll a[rel="prev"] {
   float: left;
 }
+
 .scroll a[rel="next"] {
   float: right;
 }
@@ -31,6 +32,7 @@ table {
   width: 100%;
   border-collapse: collapse;
 }
+
 table th {
   background-color: var(--color04);
 }
@@ -43,9 +45,11 @@ table td {
 table .numeric {
   text-align: right;
 }
+
 table tr:nth-child(even) {
   background-color: var(--color02);
 }
+
 table tr:nth-child(odd) {
   background-color: var(--color03);
 }
@@ -64,7 +68,9 @@ input[type="checkbox"] {
   width: 5%;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   width: 50%;
 }
 
@@ -82,7 +88,7 @@ footer li {
   list-style: none;
   display: inline;
 }
-footer li + li::before {
+
+footer li+li::before {
   content: " | ";
 }
-
