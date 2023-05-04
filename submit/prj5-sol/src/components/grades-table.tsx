@@ -124,15 +124,16 @@ type DataRowProps = {
 
 function DataRow(props: DataRowProps) {
   const { dataRow, courseInfo, changeGrade } = props;
+  //get cell data
   const cells = Object.entries(dataRow).map(([colId, value]) => {
     if (typeof value === 'number') {
       value = value.toFixed(1); // round to 1 decimal point
     }
     if (colId === courseInfo.rowIdColId || courseInfo.cols[colId]?.kind !== 'score') {
-      // non-editable cell
+      // it is a non-editable cell
       return <td key={colId}>{value.toString()}</td>;
     } else {
-      // editable cell
+      // it is a editable cell
       return (
         <td key={colId}>
           <GradeInput
@@ -175,4 +176,5 @@ function GradeInput(props: GradeInputProps) {
   return (
     <input type="text" value={value} onChange={handleChange} onBlur={handleBlur} />
   );
+  //effects of input
 }
