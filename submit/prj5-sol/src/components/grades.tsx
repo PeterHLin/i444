@@ -17,13 +17,13 @@ type GradesProps = {
 
 export default function Grades(props: GradesProps) {
   const { courseId, ws, courseInfo } = props;
-  const [ grades, setGrades ] = React.useState<G.Grades|null>(null);
-  const [ errors, setErrors ] = React.useState<string[]>([]);
+  const [grades, setGrades] = React.useState<G.Grades | null>(null);
+  const [errors, setErrors] = React.useState<string[]>([]);
   React.useEffect(() => {
     const fetch = async () => {
       const gradesResult = await ws.getCourseGrades(courseId);
       if (gradesResult.isOk) {
-	setGrades(gradesResult.val);
+        setGrades(gradesResult.val);
       }
     };
     fetch();
@@ -37,19 +37,19 @@ export default function Grades(props: GradesProps) {
       setErrors(result.errors.map(e => e.message));
     }
   };
-  
+
   return (grades === null)
     ? <></>
     : (
-        <>
-          <Errors errors={errors}/>
-          <GradesTable {...props} grades={grades} setResult={setResult} />
-        </>
-      );
+      <>
+        <Errors errors={errors} />
+        <GradesTable {...props} grades={grades} setResult={setResult} />
+      </>
+    );
 }
 
 function Errors(props: { errors: string[] }) {
-  const {errors} = props;
+  const { errors } = props;
   return (
     <ul id="errors">
       {errors.map((e, i) => <li className="error" key={i}>{e}</li>)}

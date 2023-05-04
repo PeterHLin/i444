@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import { GradesWs } from '../lib/grades-ws.js';
 
@@ -17,23 +17,55 @@ type GradesTableProps = {
 
 export default function GradesTable(props: GradesTableProps) {
   const { ws, courseId, courseInfo, grades, setResult } = props;
-  return <>TODO</>;
+  const grades_data = grades.getFullTable();
+  if (grades_data.length === 0) {
+    return (
+      <table>
+        <tbody></tbody>
+      </table>
+    )
+  }
+  const header = Object.keys(grades_data[0]);
+  //console.log(grades_data[1]);
+  // changeGrade handler
+  const changeGrade = async (rowId: string, colId: string, val: string) => {
+    if (val !== '' && isNaN(Number(val))) {
+      setResult(errResult('Invalid grade value: must be a number or empty string'));
+      return;
+    }
+    const patches: G.Patches = {};
+    patches[rowId] = { [colId]: val };
+    //console.log(patches);
+    const result = await ws.updateCourseGrades(courseId, patches).then(setResult);
+    console.log(result);
+  }
+
+  return (
+    <table>
+      <Header hdrs={header} />
+      <DataTable data={grades_data} courseInfo={courseInfo} changeGrade={changeGrade} />
+    </table>
+  );
+  // console.log(header);
+  //console.log(grades.getFullTable())
+  //return <>TODO</>;
+
 }
 
 /* The following sub-components are based on the visual layout of
    a GradesTable:
-
+ 
      + A GradesTable will contain a Header and a DataTable.
-
+ 
      + A Header simply consists of a <tr> row containing <th> entries
        for each header.
-
+ 
      + A DataTable consists of a sequence of DataRow's.
-
+ 
      + A DataRow is a <tr> containing a sequence of <td> entries.
        Each <td> entry contains a GradeInput component or plain data
        depending on whether or not the entry should be editable.
-
+ 
      + A GradeInput will be a <input> widget which displays the current
        data and has change and blur handlers.  The change handler is
        used to reflect the DOM state of the <input> in the react state
@@ -42,7 +74,7 @@ export default function GradesTable(props: GradesTableProps) {
   
   Note that all the following sub-components are set up to return
   an empty fragment as a placeholder to keep TS happy.
-
+ 
 */
 
 type HeaderProps = {
@@ -50,7 +82,16 @@ type HeaderProps = {
 };
 
 function Header(props: HeaderProps) {
-  return <></>;
+  const { hdrs } = props;
+  return (
+    <thead>
+      <tr>
+        {hdrs.map((hdr) => (
+          <th key={hdr}>{hdr}</th>
+        ))}
+      </tr>
+    </thead>
+  );
 }
 
 type DataTableProps = {
@@ -61,7 +102,18 @@ type DataTableProps = {
 
 function DataTable(props: DataTableProps) {
   const { data, courseInfo, changeGrade } = props;
-  return <></>;
+  return (
+    <tbody>
+      {data.map((row, index) => (
+        <DataRow
+          key={index}
+          dataRow={row}
+          courseInfo={courseInfo}
+          changeGrade={changeGrade}
+        />
+      ))}
+    </tbody>
+  );
 }
 
 type DataRowProps = {
@@ -71,8 +123,30 @@ type DataRowProps = {
 };
 
 function DataRow(props: DataRowProps) {
-  const {dataRow, courseInfo, changeGrade} = props;
-  return <></>;
+  const { dataRow, courseInfo, changeGrade } = props;
+  const cells = Object.entries(dataRow).map(([colId, value]) => {
+    if (typeof value === 'number') {
+      value = value.toFixed(1); // round to 1 decimal point
+    }
+    if (colId === courseInfo.rowIdColId || courseInfo.cols[colId]?.kind !== 'score') {
+      // non-editable cell
+      return <td key={colId}>{value.toString()}</td>;
+    } else {
+      // editable cell
+      return (
+        <td key={colId}>
+          <GradeInput
+            rowId={dataRow[courseInfo.rowIdColId].toString()}
+            colId={colId}
+            val={value.toString()}
+            changeGrade={changeGrade}
+          />
+        </td>
+      );
+    }
+  });
+
+  return <tr>{cells}</tr>;
 }
 
 type GradeInputProps = {
@@ -84,5 +158,21 @@ type GradeInputProps = {
 
 function GradeInput(props: GradeInputProps) {
   const { rowId, colId, val, changeGrade } = props;
-  return <></>;
+  const [value, setValue] = useState(props.val);
+  const [prevValue, setPrevValue] = useState(props.val);
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setValue(event.target.value);
+  };
+
+  const handleBlur = async (event: React.FocusEvent<HTMLInputElement>) => {
+    if (value !== prevValue) {
+      await changeGrade(rowId, colId, value);
+    }
+    setPrevValue(value);
+  };
+
+  return (
+    <input type="text" value={value} onChange={handleChange} onBlur={handleBlur} />
+  );
 }
